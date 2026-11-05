@@ -43,9 +43,9 @@ class ChantierDetailScreen extends StatelessWidget {
               title: Text(c.nom),
               actions: [
                 IconButton(
-                  tooltip: 'Rapport du jour (PDF / WhatsApp)',
+                  tooltip: 'Rapport PDF journalier ou hebdomadaire',
                   icon: const Icon(Icons.picture_as_pdf_outlined),
-                  onPressed: () => partagerRapportJournalier(context, chantierId),
+                  onPressed: () => partagerRapport(context, chantierId: chantierId),
                 ),
                 PopupMenuButton<String>(
                   onSelected: (v) async {
@@ -238,6 +238,12 @@ class _JournalTab extends StatelessWidget {
           label: const Text('Écrire le journal du jour'),
           onPressed: () => Navigator.push(
               context, MaterialPageRoute(builder: (_) => NoteEditScreen(chantierId: chantierId))),
+        ),
+        const SizedBox(height: 8),
+        OutlinedButton.icon(
+          icon: const Icon(Icons.picture_as_pdf_outlined),
+          label: const Text('Rapport PDF du journal (jour / semaine)'),
+          onPressed: () => partagerRapport(context, chantierId: chantierId),
         ),
         const SizedBox(height: 12),
         if (notes.isEmpty)

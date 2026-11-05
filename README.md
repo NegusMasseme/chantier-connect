@@ -3,7 +3,7 @@
 ![Chantier Connect](docs/logo_chantier_connect.png)
 
 Application mobile Flutter : carnet de notes libre + suivi de chantier (ouvriers, pointage, avancement) + stock par libellés.
-Version 0.3 : tout fonctionne **hors ligne** (SQLite sur le téléphone). La synchronisation Supabase viendra ensuite.
+Version 0.4 : tout fonctionne **hors ligne** (SQLite sur le téléphone). La synchronisation Supabase viendra ensuite.
 
 ## Sous Windows (raccourcis)
 
@@ -26,6 +26,20 @@ flutter run
 - Pour `flutter run`, branchez un téléphone Android (débogage USB) ou lancez un émulateur
   (`Ctrl+Shift+P` > *Flutter: Launch Emulator*), puis choisissez-le en bas à droite de VS Code.
 - F5 lance aussi l'application (VS Code détecte lib/main.dart tout seul).
+
+## Nouveautés 0.4 : rapports journalier et hebdomadaire
+
+Le rapport PDF se fait à partir des notes et du journal, pour **un jour** ou pour **une semaine** (du lundi au dimanche) :
+
+- **Où** : icône PDF de l'écran *Notes* (carnet entier, tous chantiers et notes libres), icône PDF de la fiche d'un chantier,
+  ou bouton « Rapport PDF du journal » dans l'onglet *Journal* du chantier.
+- **Contenu** : chiffres clés, synthèse tirée des notes (répartition par type + tous les « Points du jour »),
+  avancement des tâches, présences (grille L→D sur la semaine avec jours et montants), matériel
+  (mouvements du jour, ou totaux entrées/sorties/transferts et stock en fin de semaine), rappels des 7 jours suivants,
+  puis le journal détaillé jour par jour avec les photos.
+- Le PDF s'ouvre dans le menu de partage (WhatsApp, e-mail…).
+
+Le calcul est dans `lib/services/rapport_donnees.dart` (testé dans `test/rapport_test.dart`), la mise en page dans `lib/services/rapport.dart`.
 
 ## Nouveautés 0.2
 
@@ -62,7 +76,8 @@ lib/
   data/store.dart           toute la logique : stock = somme des mouvements, solde ouvrier, avancement
   data/store_scope.dart     accès au store depuis les écrans
   data/photos.dart          prise de photo / galerie, copie et compression
-  services/rapport.dart     rapport journalier PDF + partage
+  services/rapport_donnees.dart  calcul des rapports (jour / semaine, chantier / carnet)
+  services/rapport.dart     mise en page PDF + choix jour / semaine + partage
   widgets/common.dart       petits composants (tags, barres, formats FCFA et dates)
   screens/
     home_shell.dart         barre du bas + bouton « + » (Note, Pointage, Entrée, Sortie)

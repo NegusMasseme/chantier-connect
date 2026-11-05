@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 
 import '../data/store_scope.dart';
 import '../models.dart';
+import '../services/rapport.dart';
 import '../theme.dart';
 import '../widgets/common.dart';
 import 'note_edit_screen.dart';
@@ -37,6 +38,11 @@ class _NotesScreenState extends State<NotesScreen> {
               )
             : const Text('Mon carnet'),
         actions: [
+          IconButton(
+            tooltip: 'Rapport PDF journalier ou hebdomadaire',
+            icon: const Icon(Icons.picture_as_pdf_outlined),
+            onPressed: () => partagerRapport(context),
+          ),
           IconButton(
             tooltip: _cherche ? 'Fermer la recherche' : 'Rechercher',
             icon: Icon(_cherche ? Icons.close : Icons.search),

@@ -321,9 +321,12 @@ class AppStore extends ChangeNotifier {
 
   /// Stock = somme des mouvements (jamais saisi directement).
   /// Sans [chantierId] : stock global (les transferts s'annulent).
-  double stock(int libelleId, {int? chantierId}) {
+  double stock(int libelleId, {int? chantierId}) => stockAu(libelleId, null, chantierId: chantierId);
+
+  /// Stock tel qu'il était juste avant [avant] (null = maintenant).
+  double stockAu(int libelleId, DateTime? avant, {int? chantierId}) {
     double s = 0;
-    for (final m in mouvements.where((m) => m.libelleId == libelleId)) {
+    for (final m in mouvements.where((m) => m.libelleId == libelleId && (avant == null || m.date.isBefore(avant)))) {
       if (chantierId == null) {
         if (m.type == TypeMouvement.entree) s += m.quantite;
         if (m.type == TypeMouvement.sortie) s -= m.quantite;
