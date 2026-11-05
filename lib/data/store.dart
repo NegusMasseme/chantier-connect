@@ -20,6 +20,7 @@ class AppStore extends ChangeNotifier {
   List<Libelle> libelles = [];
   List<Mouvement> mouvements = [];
   List<NotePhoto> photos = [];
+  final Map<String, String> _parametres = {};
   final Map<int, Set<int>> _affectations = {}; // chantierId -> ouvrierIds
 
   Future<void> load() async {
@@ -32,9 +33,27 @@ class AppStore extends ChangeNotifier {
     libelles = (await _db.query('libelles', orderBy: 'favori DESC, nom COLLATE NOCASE')).map(Libelle.fromMap).toList();
     mouvements = (await _db.query('mouvements', orderBy: 'date DESC')).map(Mouvement.fromMap).toList();
     photos = (await _db.query('note_photos', orderBy: 'id')).map(NotePhoto.fromMap).toList();
+    _parametres
+      ..clear()
+      ..addEntries((await _db.query('parametres')).map((r) => MapEntry(r['cle'] as String, (r['valeur'] as String?) ?? '')));
     _affectations.clear();
     for (final r in await _db.query('affectations')) {
       _affectations.putIfAbsent(r['chantier_id'] as int, () => {}).add(r['ouvrier_id'] as int);
+    }
+    notifyListeners();
+  }
+
+  // ---------- Paramètres ----------
+
+  String? parametre(String cle) => _parametres[cle];
+
+  Future<void> setParametre(String cle, String? valeur) async {
+    if (valeur == null || valeur.isEmpty) {
+      await _db.delete('parametres', where: 'cle = ?', whereArgs: [cle]);
+      _parametres.remove(cle);
+    } else {
+      await _db.insert('parametres', {'cle': cle, 'valeur': valeur}, conflictAlgorithm: ConflictAlgorithm.replace);
+      _parametres[cle] = valeur;
     }
     notifyListeners();
   }

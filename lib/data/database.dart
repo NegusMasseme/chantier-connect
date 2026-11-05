@@ -12,16 +12,18 @@ class AppDatabase {
     final dbPath = path ?? p.join(await getDatabasesPath(), 'carnet_chantier.db');
     final db = await openDatabase(
       dbPath,
-      version: 2,
+      version: 3,
       singleInstance: path == null,
       onConfigure: (db) => db.execute('PRAGMA foreign_keys = ON'),
       onCreate: (db, _) async {
         await _createSchema(db);
         await _seedLibelles(db);
         await _createPhotos(db);
+        await _createParametres(db);
       },
       onUpgrade: (db, oldVersion, _) async {
         if (oldVersion < 2) await _createPhotos(db);
+        if (oldVersion < 3) await _createParametres(db);
       },
     );
     if (path == null) _db = db;
@@ -135,6 +137,11 @@ class AppDatabase {
         cree_le TEXT NOT NULL
       )''');
     await db.execute('CREATE INDEX idx_photo_note ON note_photos(note_id)');
+  }
+
+  /// v3 : réglages de l'application (clé et modèle Gemini…), en clé / valeur.
+  static Future<void> _createParametres(Database db) async {
+    await db.execute('CREATE TABLE parametres (cle TEXT PRIMARY KEY, valeur TEXT)');
   }
 
   /// Catalogue de départ : modifiable ensuite dans l'écran Libellés.

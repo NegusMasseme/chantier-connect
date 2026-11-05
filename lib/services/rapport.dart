@@ -11,7 +11,10 @@ import 'package:share_plus/share_plus.dart';
 import '../data/store.dart';
 import '../data/store_scope.dart';
 import '../models.dart';
+import '../screens/compte_rendu_screen.dart';
+import '../screens/reglages_ia_screen.dart';
 import '../theme.dart';
+import 'gemini.dart';
 import 'rapport_donnees.dart';
 
 export 'rapport_donnees.dart' show PeriodeRapport, PeriodeRapportX;
@@ -66,6 +69,7 @@ Future<File> genererRapport(
   required PeriodeRapport periode,
   required DateTime reference,
   int? chantierId,
+  CompteRendu? compteRendu,
 }) async {
   final d = construireRapport(store, periode: periode, reference: reference, chantierId: chantierId);
   final hebdo = periode == PeriodeRapport.semaine;
@@ -193,6 +197,45 @@ Future<File> genererRapport(
         pw.SizedBox(width: 8),
         _chiffre('${d.mouvements.length}', 'Mouvements de stock'),
       ]),
+
+      // Compte rendu rédigé par l'IA puis relu
+      if (compteRendu != null && !compteRendu.estVide) ...[
+        titre('Compte rendu'),
+        if (compteRendu.resume.isNotEmpty)
+          pw.Container(
+            width: double.infinity,
+            padding: const pw.EdgeInsets.all(10),
+            decoration: pw.BoxDecoration(color: _lavandePale, borderRadius: pw.BorderRadius.circular(8)),
+            child: pw.Text(_t(compteRendu.resume), style: const pw.TextStyle(fontSize: 10.5, lineSpacing: 2)),
+          ),
+        for (final (t, txt) in [
+          ('Travaux réalisés', compteRendu.travaux),
+          ('Main-d\'oeuvre', compteRendu.mainOeuvre),
+          ('Matériel', compteRendu.materiel),
+        ])
+          if (txt.isNotEmpty) ...[
+            pw.SizedBox(height: 8),
+            pw.Text(_t(t), style: pw.TextStyle(fontSize: 10.5, fontWeight: pw.FontWeight.bold, color: _violet)),
+            pw.SizedBox(height: 2),
+            pw.Text(_t(txt), style: const pw.TextStyle(fontSize: 10, lineSpacing: 2)),
+          ],
+        for (final (t, items) in [
+          ('Points d\'attention', compteRendu.pointsAttention),
+          ('Prochaines étapes', compteRendu.prochainesEtapes),
+        ])
+          if (items.isNotEmpty) ...[
+            pw.SizedBox(height: 8),
+            pw.Text(_t(t), style: pw.TextStyle(fontSize: 10.5, fontWeight: pw.FontWeight.bold, color: _violet)),
+            pw.SizedBox(height: 2),
+            for (final i in items) pw.Bullet(text: _t(i), style: const pw.TextStyle(fontSize: 10), bulletColor: _violet),
+          ],
+        pw.SizedBox(height: 4),
+        pw.Text(
+          _t('Rédigé avec l\'aide de l\'IA${compteRendu.modele.isNotEmpty ? ' (${compteRendu.modele})' : ''} '
+              'à partir des notes du chantier, puis relu avant envoi.'),
+          style: pw.TextStyle(fontSize: 8, color: _gris, fontStyle: pw.FontStyle.italic),
+        ),
+      ],
 
       // Synthèse tirée des notes
       titre(hebdo ? 'Synthèse de la semaine' : 'Synthèse du jour'),
@@ -367,40 +410,69 @@ pw.Widget _chiffre(String valeur, String label) => pw.Expanded(
       ),
     );
 
-/// Demande journalier ou hebdomadaire, puis le jour, génère le PDF et ouvre le partage.
+/// Demande journalier ou hebdomadaire (et la rédaction IA si elle est configurée),
+/// puis le jour ; fait relire le compte rendu IA ; génère le PDF et ouvre le partage.
 /// [chantierId] null : rapport du carnet entier.
 Future<void> partagerRapport(BuildContext context, {int? chantierId}) async {
   final store = StoreScope.read(context);
+  var avecIA = GeminiService.estConfigure(store);
   final periode = await showModalBottomSheet<PeriodeRapport>(
     context: context,
     showDragHandle: true,
     backgroundColor: Colors.white,
-    builder: (sheet) => SafeArea(
-      child: Padding(
-        padding: const EdgeInsets.fromLTRB(16, 0, 16, 16),
-        child: Column(mainAxisSize: MainAxisSize.min, crossAxisAlignment: CrossAxisAlignment.start, children: [
-          Padding(
-            padding: const EdgeInsets.only(left: 8, bottom: 8),
-            child: Text(
-              chantierId == null ? 'Rapport PDF du carnet' : 'Rapport PDF du chantier',
-              style: const TextStyle(fontSize: 18, fontWeight: FontWeight.w700),
-            ),
+    builder: (sheet) => StatefulBuilder(
+      builder: (sheet, setLocal) {
+        final iaPrete = GeminiService.estConfigure(store);
+        return SafeArea(
+          child: Padding(
+            padding: const EdgeInsets.fromLTRB(16, 0, 16, 16),
+            child: Column(mainAxisSize: MainAxisSize.min, crossAxisAlignment: CrossAxisAlignment.start, children: [
+              Padding(
+                padding: const EdgeInsets.only(left: 8, bottom: 8),
+                child: Text(
+                  chantierId == null ? 'Rapport PDF du carnet' : 'Rapport PDF du chantier',
+                  style: const TextStyle(fontSize: 18, fontWeight: FontWeight.w700),
+                ),
+              ),
+              _ChoixPeriode(
+                icon: Icons.today_outlined,
+                titre: 'Rapport journalier',
+                detail: 'Notes, journal, présences et matériel d\'un jour',
+                onTap: () => Navigator.pop(sheet, PeriodeRapport.jour),
+              ),
+              const SizedBox(height: 8),
+              _ChoixPeriode(
+                icon: Icons.date_range_outlined,
+                titre: 'Rapport hebdomadaire',
+                detail: 'Du lundi au dimanche : synthèse, journal jour par jour, totaux',
+                onTap: () => Navigator.pop(sheet, PeriodeRapport.semaine),
+              ),
+              const SizedBox(height: 8),
+              if (iaPrete)
+                SwitchListTile(
+                  contentPadding: const EdgeInsets.symmetric(horizontal: 8),
+                  secondary: const Icon(Icons.auto_awesome, color: AppColors.violet),
+                  title: const Text('Compte rendu rédigé par l\'IA (Gemini)'),
+                  subtitle: const Text('Vous relisez le texte avant le PDF'),
+                  value: avecIA,
+                  onChanged: (v) => setLocal(() => avecIA = v),
+                )
+              else
+                ListTile(
+                  contentPadding: const EdgeInsets.symmetric(horizontal: 8),
+                  leading: const Icon(Icons.auto_awesome, color: AppColors.violet),
+                  title: const Text('Faire rédiger le compte rendu par l\'IA'),
+                  subtitle: const Text('Configurer Gemini (clé API)'),
+                  trailing: const Icon(Icons.chevron_right),
+                  onTap: () async {
+                    await Navigator.push(sheet, MaterialPageRoute(builder: (_) => const ReglagesIAScreen()));
+                    setLocal(() => avecIA = GeminiService.estConfigure(store));
+                  },
+                ),
+            ]),
           ),
-          _ChoixPeriode(
-            icon: Icons.today_outlined,
-            titre: 'Rapport journalier',
-            detail: 'Notes, journal, présences et matériel d\'un jour',
-            onTap: () => Navigator.pop(sheet, PeriodeRapport.jour),
-          ),
-          const SizedBox(height: 8),
-          _ChoixPeriode(
-            icon: Icons.date_range_outlined,
-            titre: 'Rapport hebdomadaire',
-            detail: 'Du lundi au dimanche : synthèse, journal jour par jour, totaux',
-            onTap: () => Navigator.pop(sheet, PeriodeRapport.semaine),
-          ),
-        ]),
-      ),
+        );
+      },
     ),
   );
   if (periode == null || !context.mounted) return;
@@ -415,11 +487,56 @@ Future<void> partagerRapport(BuildContext context, {int? chantierId}) async {
   );
   if (jour == null || !context.mounted) return;
 
-  showDialog<void>(
-    context: context,
-    barrierDismissible: false,
-    builder: (_) => const Center(child: CircularProgressIndicator()),
-  );
+  final b = bornesPour(periode, jour);
+  final quoi = store.chantier(chantierId)?.nom ?? 'Carnet';
+  final quand = periode == PeriodeRapport.jour
+      ? 'du ${DateFormat('dd/MM/yyyy').format(b.debut)}'
+      : 'semaine du ${DateFormat('dd/MM').format(b.debut)} au ${DateFormat('dd/MM/yyyy').format(b.fin)}';
+
+  // 1. Rédaction par l'IA puis relecture (facultatif)
+  CompteRendu? compteRendu;
+  final gemini = avecIA ? GeminiService.depuisReglages(store) : null;
+  if (gemini != null) {
+    final donnees = construireRapport(store, periode: periode, reference: jour, chantierId: chantierId);
+    Future<CompteRendu> rediger() => gemini.redigerCompteRendu(store, donnees);
+
+    _attente(context, 'Gemini rédige le compte rendu…');
+    CompteRendu? brouillon;
+    String? erreur;
+    try {
+      brouillon = await rediger();
+    } catch (e) {
+      erreur = '$e';
+    }
+    if (!context.mounted) return;
+    Navigator.of(context, rootNavigator: true).pop();
+
+    if (brouillon == null) {
+      final continuer = await showDialog<bool>(
+        context: context,
+        builder: (c) => AlertDialog(
+          title: const Text('Rédaction IA impossible'),
+          content: Text('$erreur\n\nCréer le rapport sans le compte rendu de l\'IA ?'),
+          actions: [
+            TextButton(onPressed: () => Navigator.pop(c, false), child: const Text('Annuler')),
+            TextButton(onPressed: () => Navigator.pop(c, true), child: const Text('Continuer sans IA')),
+          ],
+        ),
+      );
+      if (continuer != true || !context.mounted) return;
+    } else {
+      compteRendu = await Navigator.push<CompteRendu>(
+        context,
+        MaterialPageRoute(
+          builder: (_) => CompteRenduScreen(initial: brouillon!, titre: '${periode.label} · $quoi $quand', regenerer: rediger),
+        ),
+      );
+      if (compteRendu == null || !context.mounted) return; // relecture abandonnée
+    }
+  }
+
+  // 2. PDF puis partage
+  _attente(context, 'Création du PDF…');
   var attenteOuverte = true;
   void fermerAttente() {
     if (attenteOuverte && context.mounted) Navigator.of(context, rootNavigator: true).pop();
@@ -427,23 +544,45 @@ Future<void> partagerRapport(BuildContext context, {int? chantierId}) async {
   }
 
   try {
-    final file = await genererRapport(store, periode: periode, reference: jour, chantierId: chantierId);
+    final file = await genererRapport(store,
+        periode: periode, reference: jour, chantierId: chantierId, compteRendu: compteRendu);
     fermerAttente();
-    final b = bornesPour(periode, jour);
-    final quoi = store.chantier(chantierId)?.nom ?? 'Carnet';
-    final quand = periode == PeriodeRapport.jour
-        ? 'du ${DateFormat('dd/MM/yyyy').format(b.debut)}'
-        : 'semaine du ${DateFormat('dd/MM').format(b.debut)} au ${DateFormat('dd/MM/yyyy').format(b.fin)}';
     await SharePlus.instance.share(ShareParams(
       files: [XFile(file.path, mimeType: 'application/pdf')],
       subject: '${periode.label} $quoi $quand',
-      text: '${periode.label} $quoi $quand',
+      text: compteRendu != null && compteRendu.resume.isNotEmpty
+          ? '${periode.label} $quoi $quand\n\n${compteRendu.resume}'
+          : '${periode.label} $quoi $quand',
     ));
   } catch (e) {
     fermerAttente();
     if (!context.mounted) return;
     ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text('Rapport impossible : $e')));
   }
+}
+
+void _attente(BuildContext context, String message) {
+  showDialog<void>(
+    context: context,
+    barrierDismissible: false,
+    builder: (_) => PopScope(
+      canPop: false,
+      child: Center(
+        child: Material(
+          color: Colors.white,
+          borderRadius: BorderRadius.circular(16),
+          child: Padding(
+            padding: const EdgeInsets.symmetric(horizontal: 24, vertical: 20),
+            child: Row(mainAxisSize: MainAxisSize.min, children: [
+              const SizedBox(width: 22, height: 22, child: CircularProgressIndicator(strokeWidth: 2.5)),
+              const SizedBox(width: 16),
+              Text(message, style: const TextStyle(fontSize: 15)),
+            ]),
+          ),
+        ),
+      ),
+    ),
+  );
 }
 
 class _ChoixPeriode extends StatelessWidget {

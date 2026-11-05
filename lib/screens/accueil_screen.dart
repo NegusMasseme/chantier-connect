@@ -8,6 +8,7 @@ import 'chantier_detail_screen.dart';
 import 'mouvement_screen.dart';
 import 'note_edit_screen.dart';
 import 'pointage_screen.dart';
+import 'reglages_ia_screen.dart';
 
 class AccueilScreen extends StatelessWidget {
   const AccueilScreen({super.key, required this.onGoTo});
@@ -37,6 +38,11 @@ class AccueilScreen extends StatelessWidget {
                     style: const TextStyle(fontSize: 13, color: AppColors.gris)),
                 const Text('Chantier Connect', style: TextStyle(fontSize: 20, fontWeight: FontWeight.w700)),
               ]),
+            ),
+            IconButton(
+              tooltip: 'IA Gemini (rédaction des rapports)',
+              icon: const Icon(Icons.auto_awesome, color: AppColors.violet),
+              onPressed: () => Navigator.push(context, MaterialPageRoute(builder: (_) => const ReglagesIAScreen())),
             ),
           ]),
           const SizedBox(height: 20),

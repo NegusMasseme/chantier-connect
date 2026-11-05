@@ -3,7 +3,7 @@
 ![Chantier Connect](docs/logo_chantier_connect.png)
 
 Application mobile Flutter : carnet de notes libre + suivi de chantier (ouvriers, pointage, avancement) + stock par libellés.
-Version 0.4 : tout fonctionne **hors ligne** (SQLite sur le téléphone). La synchronisation Supabase viendra ensuite.
+Version 0.5 : tout fonctionne **hors ligne** (SQLite sur le téléphone). La synchronisation Supabase viendra ensuite.
 
 ## Sous Windows (raccourcis)
 
@@ -26,6 +26,22 @@ flutter run
 - Pour `flutter run`, branchez un téléphone Android (débogage USB) ou lancez un émulateur
   (`Ctrl+Shift+P` > *Flutter: Launch Emulator*), puis choisissez-le en bas à droite de VS Code.
 - F5 lance aussi l'application (VS Code détecte lib/main.dart tout seul).
+
+## Nouveautés 0.5 : compte rendu rédigé par l'IA Gemini
+
+- **Réglage** : icône ✦ en haut de l'accueil → coller une clé API Gemini (gratuite sur aistudio.google.com),
+  choisir le modèle (par défaut `gemini-3.8-flash`), « Tester la connexion ».
+- **Utilisation** : au moment de créer un rapport PDF (journalier ou hebdomadaire), laisser coché
+  « Compte rendu rédigé par l'IA ». Gemini rédige à partir des notes, du journal, des présences, du matériel et des tâches :
+  résumé, travaux réalisés, main-d'œuvre, matériel, points d'attention, prochaines étapes.
+- **Relecture** : le texte s'ouvre dans un écran modifiable (bouton « Régénérer ») ; le PDF n'est créé qu'après validation.
+  Il est placé en tête du rapport, avec la mention qu'il a été rédigé avec l'aide de l'IA.
+- **Hors ligne ou sans clé** : le rapport se crée comme avant, sans compte rendu IA.
+- **Confidentialité** : seules les données texte de la période sont envoyées à Google ; les photos ne le sont pas.
+- Clé possible à la compilation (sans saisie dans l'app) : `flutter build apk --dart-define=GEMINI_API_KEY=...`
+
+Code : `lib/services/gemini.dart` (appel API, consignes, lecture de la réponse ; testé dans `test/gemini_test.dart`),
+`lib/screens/reglages_ia_screen.dart`, `lib/screens/compte_rendu_screen.dart`.
 
 ## Nouveautés 0.4 : rapports journalier et hebdomadaire
 
@@ -78,6 +94,7 @@ lib/
   data/photos.dart          prise de photo / galerie, copie et compression
   services/rapport_donnees.dart  calcul des rapports (jour / semaine, chantier / carnet)
   services/rapport.dart     mise en page PDF + choix jour / semaine + partage
+  services/gemini.dart      rédaction du compte rendu par l'IA Gemini
   widgets/common.dart       petits composants (tags, barres, formats FCFA et dates)
   screens/
     home_shell.dart         barre du bas + bouton « + » (Note, Pointage, Entrée, Sortie)
